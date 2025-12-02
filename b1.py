@@ -1,7 +1,12 @@
+#!/usr/bin/env python
+# coding: utf-8
+
+# In[22]:
+
 
 
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "3" 
+os.environ["CUDA_VISIBLE_DEVICES"] = "2" 
 
 # In[13]:
 
@@ -32,13 +37,10 @@ dfa7= pd.read_csv(r"../../../../Taipei_17.csv")
 dfa8= pd.read_csv(r"../../../../Taipei_18.csv")
 
 
+# In[23]:
 
-# dfa4= pd.read_csv(r"C:\Users\Khalid\Downloads\Taipei_14.csv")
-# dfa5= pd.read_csv(r"C:\Users\Khalid\Downloads\Taipei_15.csv")
-# dfa6= pd.read_csv(r"C:\Users\Khalid\Downloads\Taipei_16.csv")
-# dfa7= pd.read_csv(r"C:\Users\Khalid\Downloads\Taipei_17.csv")
-# dfa8= pd.read_csv(r"C:\Users\Khalid\Downloads\Taipei_18.csv")
-# # In[12]:
+
+# In[12]:
 
 
 a4=dfa4[[ 'AMB_TEMP', 'CH4',
@@ -271,7 +273,7 @@ test_dataloader = DataLoader(teset_dataset, batch_size=10, shuffle=False)
 
 
 
-# In[14]:
+# In[24]:
 
 
 import torch
@@ -320,31 +322,7 @@ class TimeSeriesModel(nn.Module):
         # Fully connected layer
         out = self.fc(attended_values).unsqueeze(-1)
         return out
-class Weighted(nn.Module):
-    def __init__(self,n):
-        super().__init__()
-        self.net = nn.Linear(n, 1)
-        
-    def forward(self, x):            
-        return self.net(x)
-def init_weights(m):
-    if type(m) == nn.Linear:
-         #if type(m) == nn.Linear:
-        nn.init.ones_(m.weight)
-       
-    
-    
-class ConcatenatedCNN1DModel(nn.Module):
-    def __init__(self, model1, model2,model3, model4):
-        super(ConcatenatedCNN1DModel, self).__init__()
-        self.models = nn.ModuleList([model1, model2,model3, model4])
-        self.fc = nn.Linear(in_features=len(self.models) * output_size, out_features=1)
 
-    def forward(self, x):
-        outputs = [model(x) for model in self.models]
-        concatenated = torch.cat(outputs, dim=1)
-        return self.fc(concatenated.view(x.size(0), -1)).unsqueeze(-1)       
-   
     
 input_size=10
 
@@ -359,16 +337,8 @@ cnn_out_channels =8 # Adjust as needed
 lstm_hidden_size = 10  # Adjust as needed
 lstm_num_layers = 8  # Adjust as needed
 num_heads = 4  # Number of heads in the self-attention layer
-output_size =1# Adjust based on your task (e.g., binary classification)
+output_size =1 # Adjust based on your task (e.g., binary classification)
 
-
-cnn_model1 = TimeSeriesModel(input_size, cnn_out_channels, lstm_hidden_size, lstm_num_layers, num_heads, output_size)
-cnn_model2 = TimeSeriesModel(input_size, cnn_out_channels, lstm_hidden_size, lstm_num_layers, num_heads, output_size)
-cnn_model3 = TimeSeriesModel(input_size, cnn_out_channels, lstm_hidden_size, lstm_num_layers, num_heads, output_size)
-cnn_model4 = TimeSeriesModel(input_size, cnn_out_channels, lstm_hidden_size, lstm_num_layers, num_heads, output_size)
-
-###############################
-model=concatenated_model = ConcatenatedCNN1DModel(cnn_model1, cnn_model2,cnn_model3, cnn_model4).to(device)
 
 
 model = TimeSeriesModel(input_size, cnn_out_channels, lstm_hidden_size, lstm_num_layers, num_heads, output_size).to(device)
@@ -376,13 +346,13 @@ criterion = torch.nn.MSELoss(reduction='mean')
 optimizer = optim.Adam(model.parameters(), lr=0.001)
 
 
-# In[15]:
+# In[25]:
 
 
 print(model)
 
 
-# In[ ]:
+# In[26]:
 
 
 
@@ -390,10 +360,6 @@ optimiser = torch.optim.Adam(model.parameters(), lr=1e-4)
 
 num_epochs = 50
 
-
-wrap = Weighted(1)
-#wrap.sum()
-wrap.apply(init_weights).to(device)
 
 criterion = torch.nn.MSELoss(reduction='mean')
 optimiser = torch.optim.Adam(model.parameters(), lr=1e-4)
@@ -415,14 +381,13 @@ for t in range(num_epochs):
     for idx, data in enumerate(train_dataloader):
         x, y_true = data
         y_pred = model(x).to(device)
-        #print(y_pred.shape,y_true.shape)
+      #  print(y_pred.shape,y_true.shape)
+
         loss = criterion(y_pred, y_true)
         hist[t] += loss.item()
-        wrap_loss = wrap(loss.unsqueeze(dim=0))
-        wrap_loss.sum()
         #wrap_loss = wrap(loss)
         optimiser.zero_grad()
-        wrap_loss.backward()
+        loss.backward()
         optimiser.step()
     hist[t] /= len(train_dataloader)
     model.eval()
@@ -446,7 +411,9 @@ training_time = time.time()-start_time
 print("Training time: {}".format(training_time))
 
 
-# In[ ]:
+# In[27]:
+
+
 
 
 model.load_state_dict(torch.load('Banqiao1.pt'))
@@ -484,4 +451,10 @@ with open('Banqiao.csv', 'w', newline='') as file:
         writer.writerows(row_list)
 dfa471= pd.read_csv("Banqiao.csv")
 dfa471
+
+
+# In[ ]:
+
+
+
 

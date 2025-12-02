@@ -76,11 +76,11 @@ a8=dfa8[['AMB_TEMP', 'CH4',
        'WIND_DIREC', 'WIND_SPEED', 'WIND_cos', 'WIND_sin', 'WS_HR', 'W_HR_cos',
        'W_HR_sin']]
 
-r14=(dfa4[dfa4.SiteEngName =='Banqiao'])
-r15=(dfa5[dfa5.SiteEngName =='Banqiao'])
-r16=(dfa6[dfa6.SiteEngName =='Banqiao'])
-r17=(dfa7[dfa7.SiteEngName =='Banqiao'])
-r18=(dfa8[dfa8.SiteEngName =='Banqiao'])
+r14=(dfa4[dfa4.SiteEngName =='Datong'])
+r15=(dfa5[dfa5.SiteEngName =='Datong'])
+r16=(dfa6[dfa6.SiteEngName =='Datong'])
+r17=(dfa7[dfa7.SiteEngName =='Datong'])
+r18=(dfa8[dfa8.SiteEngName =='Datong'])
 
 ######----------------------------------------------------
 
@@ -136,7 +136,7 @@ print(c4i.shape)
 
 # Put timesteps together
 x=c4i
-timestep =8
+timestep =16
 x_build = []
 
 for i in range(x.shape[0] - timestep * 2 ):
@@ -344,7 +344,7 @@ cnn_out_channels =8 # Adjust as needed
 lstm_hidden_size = 10  # Adjust as needed
 lstm_num_layers = 8  # Adjust as needed
 num_heads = 4  # Number of heads in the self-attention layer
-output_size =8 # Adjust based on your task (e.g., binary classification)
+output_size =16 # Adjust based on your task (e.g., binary classification)
 
 
 
@@ -409,7 +409,7 @@ for t in range(num_epochs):
     if best_loss > val[t]:
         best_loss = val[t]
         # TODO: Save model 
-        torch.save(model.state_dict(),'Banqiao8.pt')
+        torch.save(model.state_dict(),'Datong8.pt')
 #     scheduler.step(vall_loss)
     #print("Epoch:, loss: %1.5f valid loss:  %1.5f "%(loss.item(),vall_loss.item()))
     print("Epoch ", t, "MSE: ", hist[t].item(),t,"Valid loss",val[t].item())
@@ -423,7 +423,7 @@ print("Training time: {}".format(training_time))
 
 
 
-model.load_state_dict(torch.load('Banqiao8.pt'))
+model.load_state_dict(torch.load('Datong8.pt'))
 #####################
 
 
@@ -454,14 +454,14 @@ print('this is mae ',mae_score)
 #####################################
 
 import csv
-data =[[8,rmse_score,mae_score,mape_score,"Banqiao"]]
-file = open('Banqiao.csv', 'a+', newline ='')
+data =[[16,rmse_score,mae_score,mape_score,"Datong"]]
+file = open('Datong.csv', 'a+', newline ='')
 
 # writing the data into the file
 with file:    
     write = csv.writer(file)
     write.writerows(data)
-dfa47= pd.read_csv("Banqiao.csv")
+dfa47= pd.read_csv("Datong.csv")
 dfa47
 
 
