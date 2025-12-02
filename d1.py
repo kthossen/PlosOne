@@ -1,12 +1,6 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-# In[22]:
-
-
 
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "2" 
+os.environ["CUDA_VISIBLE_DEVICES"] = "0" 
 
 # In[13]:
 
@@ -27,8 +21,8 @@ import math ,time
 import math, time
 from sklearn.metrics import mean_squared_error
 
-# In[13]:
 
+# In[13]:
 
 dfa4= pd.read_csv(r"../../../../Taipei_14.csv")
 dfa5= pd.read_csv(r"../../../../Taipei_15.csv")
@@ -36,9 +30,7 @@ dfa6= pd.read_csv(r"../../../../Taipei_16.csv")
 dfa7= pd.read_csv(r"../../../../Taipei_17.csv")
 dfa8= pd.read_csv(r"../../../../Taipei_18.csv")
 
-
-# In[23]:
-
+# In[12]:
 
 
 a4=dfa4[[ 'AMB_TEMP', 'CH4',
@@ -271,7 +263,7 @@ test_dataloader = DataLoader(teset_dataset, batch_size=10, shuffle=False)
 
 
 
-# In[24]:
+# In[14]:
 
 
 import torch
@@ -320,7 +312,19 @@ class TimeSeriesModel(nn.Module):
         # Fully connected layer
         out = self.fc(attended_values).unsqueeze(-1)
         return out
-
+class Weighted(nn.Module):
+    def __init__(self,n):
+        super().__init__()
+        self.net = nn.Linear(n, 1)
+        
+    def forward(self, x):            
+        return self.net(x)
+def init_weights(m):
+    if type(m) == nn.Linear:
+         #if type(m) == nn.Linear:
+        nn.init.ones_(m.weight)
+       
+    
     
 input_size=10
 
@@ -335,22 +339,20 @@ cnn_out_channels =8 # Adjust as needed
 lstm_hidden_size = 10  # Adjust as needed
 lstm_num_layers = 8  # Adjust as needed
 num_heads = 4  # Number of heads in the self-attention layer
-output_size =1 # Adjust based on your task (e.g., binary classification)
-
-
+output_size =1# Adjust based on your task (e.g., binary classification)
 
 model = TimeSeriesModel(input_size, cnn_out_channels, lstm_hidden_size, lstm_num_layers, num_heads, output_size).to(device)
 criterion = torch.nn.MSELoss(reduction='mean')
 optimizer = optim.Adam(model.parameters(), lr=0.001)
 
 
-# In[25]:
+# In[15]:
 
 
 print(model)
 
 
-# In[26]:
+# In[ ]:
 
 
 
@@ -358,6 +360,10 @@ optimiser = torch.optim.Adam(model.parameters(), lr=1e-4)
 
 num_epochs = 50
 
+
+wrap = Weighted(1)
+#wrap.sum()
+wrap.apply(init_weights).to(device)
 
 criterion = torch.nn.MSELoss(reduction='mean')
 optimiser = torch.optim.Adam(model.parameters(), lr=1e-4)
@@ -379,13 +385,14 @@ for t in range(num_epochs):
     for idx, data in enumerate(train_dataloader):
         x, y_true = data
         y_pred = model(x).to(device)
-      #  print(y_pred.shape,y_true.shape)
-
+        #print(y_pred.shape,y_true.shape)
         loss = criterion(y_pred, y_true)
         hist[t] += loss.item()
+        wrap_loss = wrap(loss.unsqueeze(dim=0))
+        wrap_loss.sum()
         #wrap_loss = wrap(loss)
         optimiser.zero_grad()
-        loss.backward()
+        wrap_loss.backward()
         optimiser.step()
     hist[t] /= len(train_dataloader)
     model.eval()
@@ -409,9 +416,35 @@ training_time = time.time()-start_time
 print("Training time: {}".format(training_time))
 
 
-# In[27]:
+# In[ ]:
 
 
+model.load_state_dict(torch.load('Datong1.pt'))
+#####################
+predict_ary = model(x_test)
+#model.to(device)
+print (predict_ary.shape)
+#print (test_y.shape)
+#print (X_valid.shape)
+rmse_score = np.sqrt(np.mean(np.square(predict_ary.cpu().detach().numpy() - y_test.cpu().detach().numpy())))
+mae_score = np.mean(np.abs(predict_ary.cpu().detach().numpy() - y_test.cpu().detach().numpy()))
+#mape_score = mean_absolute_percentage_error(y_valid_c.astype("float"),predict_ary)
+#mae2 = mean_absolute_error(predict_ary, validation_Y[:-3])
+print('this is rmse ',rmse_score)
+#print('this is mape ',mape_score)
+print('this is mae ',mae_score)
+#####################################
+sum([param.nelement() for param in model.parameters()])
+
+
+# In[ ]:
+
+
+
+sum([param.nelement() for param in model.parameters()])
+
+
+# In[ ]:
 
 
 model.load_state_dict(torch.load('Datong1.pt'))
@@ -449,10 +482,4 @@ with open('Datong.csv', 'w', newline='') as file:
         writer.writerows(row_list)
 dfa471= pd.read_csv("Datong.csv")
 dfa471
-
-
-# In[ ]:
-
-
-
 
