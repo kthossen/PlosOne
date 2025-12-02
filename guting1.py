@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[ ]:
+# In[1]:
 
 
 
@@ -73,11 +73,11 @@ a8=dfa8[['AMB_TEMP', 'CH4',
        'WIND_DIREC', 'WIND_SPEED', 'WIND_cos', 'WIND_sin', 'WS_HR', 'W_HR_cos',
        'W_HR_sin']]
 
-r14=(dfa4[dfa4.SiteEngName =='Banqiao'])
-r15=(dfa5[dfa5.SiteEngName =='Banqiao'])
-r16=(dfa6[dfa6.SiteEngName =='Banqiao'])
-r17=(dfa7[dfa7.SiteEngName =='Banqiao'])
-r18=(dfa8[dfa8.SiteEngName =='Banqiao'])
+r14=(dfa4[dfa4.SiteEngName =='Guting'])
+r15=(dfa5[dfa5.SiteEngName =='Guting'])
+r16=(dfa6[dfa6.SiteEngName =='Guting'])
+r17=(dfa7[dfa7.SiteEngName =='Guting'])
+r18=(dfa8[dfa8.SiteEngName =='Guting'])
 
 ######----------------------------------------------------
 
@@ -133,7 +133,7 @@ print(c4i.shape)
 
 # Put timesteps together
 x=c4i
-timestep =32
+timestep =1
 x_build = []
 
 for i in range(x.shape[0] - timestep * 2 ):
@@ -401,7 +401,7 @@ for t in range(num_epochs):
     if best_loss > val[t]:
         best_loss = val[t]
         # TODO: Save model 
-        torch.save(model.state_dict(),'Banqiao32.pt')
+        torch.save(model.state_dict(),'nbestmodel1w.pt')
 #     scheduler.step(vall_loss)
     #print("Epoch:, loss: %1.5f valid loss:  %1.5f "%(loss.item(),vall_loss.item()))
     print("Epoch ", t, "MSE: ", hist[t].item(),t,"Valid loss",val[t].item())
@@ -410,8 +410,19 @@ training_time = time.time()-start_time
 print("Training time: {}".format(training_time))
 
 
+# 
 
-model.load_state_dict(torch.load('Banqiao32.pt'))
+# In[ ]:b
+
+
+# In[ ]:
+
+
+
+
+
+
+model.load_state_dict(torch.load('nbestmodel1w.pt'))
 #model.to(device)
 
     #print("Epoch:, loss: %1.5f valid loss:  %1.5f "%(loss.item(),vall_loss.item()))
@@ -454,16 +465,18 @@ sum([param.nelement() for param in model.parameters()])
 
 
 import csv
-data =[[32,rmse_score,mae_score,mape_score,"Banqiao"]]
-file = open('Banqiao.csv', 'a+', newline ='')
+row_list = [["HR","RMSE","MAE","MAPE","Site"],
+             [1,rmse_score,mae_score,mape_score,"Guting"]]
+with open('Guting.csv', 'w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerows(row_list)
+dfa471= pd.read_csv("Guting.csv")
+dfa471
 
-# writing the data into the file
-with file:    
-    write = csv.writer(file)
-    write.writerows(data)
-dfa47= pd.read_csv("Banqiao.csv")
-dfa47
 
+
+
+# In[ ]:
 
 
 

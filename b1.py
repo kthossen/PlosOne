@@ -1,10 +1,17 @@
+#!/usr/bin/env python
+# coding: utf-8
+
+# In[1]:
+
+
+
+
 
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "0" 
-
-# In[13]:
-
-
+os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID";
+ 
+# The GPU id to use, usually either "0" or "1";
+os.environ["CUDA_VISIBLE_DEVICES"]="0"
 
 import torch
 import torch.nn as nn
@@ -22,13 +29,20 @@ import math, time
 from sklearn.metrics import mean_squared_error
 
 
-# In[13]:
+# In[2]:
+
 
 dfa4= pd.read_csv(r"../../../../Taipei_14.csv")
 dfa5= pd.read_csv(r"../../../../Taipei_15.csv")
 dfa6= pd.read_csv(r"../../../../Taipei_16.csv")
 dfa7= pd.read_csv(r"../../../../Taipei_17.csv")
 dfa8= pd.read_csv(r"../../../../Taipei_18.csv")
+# dfa4= pd.read_csv(r"C:\Users\Khalid\Downloads\Taipei_14.csv")
+# dfa5= pd.read_csv(r"C:\Users\Khalid\Downloads\Taipei_15.csv")
+# dfa6= pd.read_csv(r"C:\Users\Khalid\Downloads\Taipei_16.csv")
+# dfa7= pd.read_csv(r"C:\Users\Khalid\Downloads\Taipei_17.csv")
+# dfa8= pd.read_csv(r"C:\Users\Khalid\Downloads\Taipei_18.csv")
+
 
 # In[12]:
 
@@ -59,11 +73,11 @@ a8=dfa8[['AMB_TEMP', 'CH4',
        'WIND_DIREC', 'WIND_SPEED', 'WIND_cos', 'WIND_sin', 'WS_HR', 'W_HR_cos',
        'W_HR_sin']]
 
-r14=(dfa4[dfa4.SiteEngName =='Songshan'])
-r15=(dfa5[dfa5.SiteEngName =='Songshan'])
-r16=(dfa6[dfa6.SiteEngName =='Songshan'])
-r17=(dfa7[dfa7.SiteEngName =='Songshan'])
-r18=(dfa8[dfa8.SiteEngName =='Songshan'])
+r14=(dfa4[dfa4.SiteEngName =='Banqiao'])
+r15=(dfa5[dfa5.SiteEngName =='Banqiao'])
+r16=(dfa6[dfa6.SiteEngName =='Banqiao'])
+r17=(dfa7[dfa7.SiteEngName =='Banqiao'])
+r18=(dfa8[dfa8.SiteEngName =='Banqiao'])
 
 ######----------------------------------------------------
 
@@ -255,104 +269,70 @@ teset_dataset = MyDataset(x_test, y_test)
 
 train_dataloader = DataLoader(train_dataset, batch_size=10, shuffle=True)
 test_dataloader = DataLoader(teset_dataset, batch_size=10, shuffle=False)
+ 
 
-
-# In[ ]:
-
-
-
-
-
-# In[14]:
+# In[3]:
 
 
 import torch
 import torch.nn as nn
-import torch.optim as optim
-from torch.utils.data import DataLoader, TensorDataset
-from sklearn.model_selection import train_test_split
 
-class TimeSeriesModel(nn.Module):
-    def __init__(self, input_size, cnn_out_channels, lstm_hidden_size, lstm_num_layers, num_heads, num_classes):
-        super(TimeSeriesModel, self).__init__()
+class SelfAttention(nn.Module):
+    def __init__(self, in_dim):
+        super(SelfAttention, self).__init__()
+        self.query = nn.Linear(in_dim, in_dim)
+        self.key = nn.Linear(in_dim, in_dim)
+        self.value = nn.Linear(in_dim, in_dim)
 
-        # 1D CNN layer
-        self.cnn = nn.Sequential(
-            nn.Conv1d(input_size, cnn_out_channels, kernel_size=1)
-#             nn.ReLU(),
-#             nn.MaxPool1d(kernel_size=8)
-        )
+    def forward(self, x):
+        # Assuming x has shape (batch_size, sequence_length, feature_dim)
 
-        # Bidirectional LSTM layer
-        self.lstm = nn.LSTM(cnn_out_channels, lstm_hidden_size, lstm_num_layers, batch_first=True, bidirectional=True)
+        # Linear transformations for query, key, and value
+        query = self.query(x)
+        key = self.key(x)
+        value = self.value(x)
 
-        # Self-Attention layer
-        #self.self_attention = nn.MultiheadAttention(embed_dim=lstm_hidden_size * 2, num_heads=num_heads)
-        self.self_attention = nn.MultiheadAttention(embed_dim=lstm_hidden_size*2, num_heads=num_heads)
+        # Scaled Dot-Product Attention
+        scores = torch.matmul(query, key.transpose(-2, -1)) / (query.size(-1) ** 0.5)
+        attention_weights = nn.functional.softmax(scores, dim=-1)
+        attended_values = torch.matmul(attention_weights, value)
 
-        # Fully connected layer
-        self.fc = nn.Linear(lstm_hidden_size*2 , num_classes)  # Multiply by 2 for bidirectional
+        return attended_values
+
+class TimeSeriesSelfAttentionModel(nn.Module):
+    def __init__(self, input_size, hidden_size, output_size):
+        super(TimeSeriesSelfAttentionModel, self).__init__()
+        self.lstm = nn.LSTM(input_size, hidden_size, output_size)
+        self.attention = SelfAttention(in_dim=input_size)
+        self.fc1 = nn.Linear(input_size, hidden_size)
+        self.relu = nn.ReLU()
+        self.fc2 = nn.Linear(hidden_size, output_size)
 
     def forward(self, x):
         # Assuming x has shape (batch_size, sequence_length, input_size)
-
-        # Apply 1D CNN
-        x = self.cnn(x.transpose(1, 2)).transpose(1, 2)  # Transpose for CNN operation
-        # = self.cnn(x)  # Transpose for CNN operation
-        # Apply Bidirectional LSTM
-        lstm_out, _ = self.lstm(x)
-
-        # Apply Self-Attention
-        attention_out, _ = self.self_attention(lstm_out.transpose(0, 1), lstm_out.transpose(0, 1), lstm_out.transpose(0, 1))
-       # attended_values = attention_out.transpose(0, 1)
-        attended_values = attention_out.transpose(0,1)
-        attended_values=torch.mean(attended_values,1)
-        # Take the output from the last time step for classification
-        #attended_values = attended_values[-1]
-        # Fully connected layer
-        out = self.fc(attended_values).unsqueeze(-1)
-        return out
-class Weighted(nn.Module):
-    def __init__(self,n):
-        super().__init__()
-        self.net = nn.Linear(n, 1)
         
-    def forward(self, x):            
-        return self.net(x)
-def init_weights(m):
-    if type(m) == nn.Linear:
-         #if type(m) == nn.Linear:
-        nn.init.ones_(m.weight)
-       
-    
-    
-input_size=10
+        # Self-Attention
+        attended_values = self.attention(x)
 
-batch_size = 16
-# train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-# val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
-# Instantiate the model, loss function, and optimizer
+        # Global Average Pooling to summarize the attended values
+       # attended_values = torch.mean(attended_values, dim=1)
 
+        # Fully connected layers
+        x = self.fc1(attended_values)
+        x = self.relu(x)
+        x = self.fc2(x)
 
-cnn_out_channels =8 # Adjust as needed
+        return x
 
-lstm_hidden_size = 10  # Adjust as needed
-lstm_num_layers = 8  # Adjust as needed
-num_heads = 4  # Number of heads in the self-attention layer
-output_size =1# Adjust based on your task (e.g., binary classification)
+# Example usage:
+input_size = 10  # Replace with the actual feature dimension of your time series data
+hidden_size = 64  # Adjust as needed
+output_size = 1  # Adjust based on your task (e.g., regression or classification)
 
-model = TimeSeriesModel(input_size, cnn_out_channels, lstm_hidden_size, lstm_num_layers, num_heads, output_size).to(device)
-criterion = torch.nn.MSELoss(reduction='mean')
-optimizer = optim.Adam(model.parameters(), lr=0.001)
+model = TimeSeriesSelfAttentionModel(input_size, hidden_size, output_size).to(device)
 
 
-# In[15]:
-
-
-print(model)
-
-
-# In[ ]:
+# In[4]:
 
 
 
@@ -360,10 +340,6 @@ optimiser = torch.optim.Adam(model.parameters(), lr=1e-4)
 
 num_epochs = 50
 
-
-wrap = Weighted(1)
-#wrap.sum()
-wrap.apply(init_weights).to(device)
 
 criterion = torch.nn.MSELoss(reduction='mean')
 optimiser = torch.optim.Adam(model.parameters(), lr=1e-4)
@@ -377,16 +353,33 @@ hist = np.zeros(num_epochs)
 val=np.zeros(num_epochs)
 start_time = time.time()
 ######################################
-#num_epochs =50
 ##########################
 
+class Weighted(nn.Module):
+    def __init__(self,n):
+        super().__init__()
+        self.net = nn.Linear(n, 1)
+        
+    def forward(self, x):            
+        return self.net(x)
+def init_weights(m):
+    if type(m) == nn.Linear:
+         #if type(m) == nn.Linear:
+        nn.init.ones_(m.weight)
+       # torch.nn.init.xavier_uniform_(m.weight)
+       # m.bias.data.fill_(0.1)
+    
+
+wrap = Weighted(1).to(device)
+#wrap.sum()
+wrap.apply(init_weights)
 for t in range(num_epochs):
     model.train()
     for idx, data in enumerate(train_dataloader):
         x, y_true = data
         y_pred = model(x).to(device)
-        #print(y_pred.shape,y_true.shape)
-        loss = criterion(y_pred, y_true)
+
+        loss = criterion(y_pred, y_true).to(device)
         hist[t] += loss.item()
         wrap_loss = wrap(loss.unsqueeze(dim=0))
         wrap_loss.sum()
@@ -396,6 +389,7 @@ for t in range(num_epochs):
         optimiser.step()
     hist[t] /= len(train_dataloader)
     model.eval()
+    
     for idx, data in enumerate(test_dataloader):
         with torch.no_grad():
             x, y_true = data
@@ -407,7 +401,7 @@ for t in range(num_epochs):
     if best_loss > val[t]:
         best_loss = val[t]
         # TODO: Save model 
-        torch.save(model.state_dict(),'Songshan1.pt')
+        torch.save(model.state_dict(),'nbestmodel1w.pt')
 #     scheduler.step(vall_loss)
     #print("Epoch:, loss: %1.5f valid loss:  %1.5f "%(loss.item(),vall_loss.item()))
     print("Epoch ", t, "MSE: ", hist[t].item(),t,"Valid loss",val[t].item())
@@ -416,40 +410,26 @@ training_time = time.time()-start_time
 print("Training time: {}".format(training_time))
 
 
+# 
+
+# In[ ]:b
+
+
 # In[ ]:
 
 
-model.load_state_dict(torch.load('Songshan1.pt'))
-#####################
-predict_ary = model(x_test)
+
+
+
+
+model.load_state_dict(torch.load('nbestmodel1w.pt'))
 #model.to(device)
-print (predict_ary.shape)
-#print (test_y.shape)
-#print (X_valid.shape)
-rmse_score = np.sqrt(np.mean(np.square(predict_ary.cpu().detach().numpy() - y_test.cpu().detach().numpy())))
-mae_score = np.mean(np.abs(predict_ary.cpu().detach().numpy() - y_test.cpu().detach().numpy()))
-#mape_score = mean_absolute_percentage_error(y_valid_c.astype("float"),predict_ary)
-#mae2 = mean_absolute_error(predict_ary, validation_Y[:-3])
-print('this is rmse ',rmse_score)
-#print('this is mape ',mape_score)
-print('this is mae ',mae_score)
-#####################################
-sum([param.nelement() for param in model.parameters()])
 
+    #print("Epoch:, loss: %1.5f valid loss:  %1.5f "%(loss.item(),vall_loss.item()))
+print("Epoch ", t, "MSE: ", hist[t].item(),t,"Valid loss",val[t].item())
 
-# In[ ]:
-
-
-
-sum([param.nelement() for param in model.parameters()])
-
-
-# In[ ]:
-
-
-model.load_state_dict(torch.load('Songshan1.pt'))
-#####################
-
+training_time = time.time()-start_time    
+print("Training time: {}".format(training_time))
 
 #####################
 predict_ary = model(x_test)
@@ -467,19 +447,43 @@ from sklearn.metrics import mean_absolute_percentage_error
 rmse_score = np.sqrt(np.mean(np.square(predict_ary.cpu().detach().numpy() - y_test.cpu().detach().numpy())))
 mae_score = np.mean(np.abs(predict_ary.cpu().detach().numpy() - y_test.cpu().detach().numpy()))
 mape_score = mape(predict_ary.cpu().detach().numpy(),y_test.cpu().detach().numpy())
-
+#mae2 = mean_absolute_error(predict_ary, validation_Y[:-3])
 print('this is rmse ',rmse_score)
 print('this is mape ',mape_score)
 print('this is mae ',mae_score)
-
 #####################################
+sum([param.nelement() for param in model.parameters()])
+
+
+
+
+sum([param.nelement() for param in model.parameters()])
+
+
+# In[ ]:
+
+
 
 import csv
 row_list = [["HR","RMSE","MAE","MAPE","Site"],
-             [1,rmse_score,mae_score,mape_score,"Songshan"]]
-with open('Songshan.csv', 'w', newline='') as file:
+             [1,rmse_score,mae_score,mape_score,"Banqiao"]]
+with open('Banqiao.csv', 'w', newline='') as file:
         writer = csv.writer(file)
         writer.writerows(row_list)
-dfa471= pd.read_csv("Songshan.csv")
+dfa471= pd.read_csv("Banqiao.csv")
 dfa471
+
+
+
+
+# In[ ]:
+
+
+
+
+
+# In[ ]:
+
+
+
 
