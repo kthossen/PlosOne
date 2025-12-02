@@ -1,35 +1,30 @@
 
 
-
 import os
-os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID";
- 
-# The GPU id to use, usually either "0" or "1";
-os.environ["CUDA_VISIBLE_DEVICES"]="2"
+os.environ["CUDA_VISIBLE_DEVICES"] = "3" 
+
+# In[13]:
 
 
-# In[2]:
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torchsummary import summary
-
+#from torchsummary import summary
+from torch.optim import Adam
 from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
-
-
-
+from typing import List
 import pandas as pd
 import numpy as np
 import math ,time
 
+import math, time
+from sklearn.metrics import mean_squared_error
 
-# In[6]:
+# In[13]:
 
 
-
-# In[1]:
-# In[1]:
 dfa4= pd.read_csv(r"../../../../Taipei_14.csv")
 dfa5= pd.read_csv(r"../../../../Taipei_15.csv")
 dfa6= pd.read_csv(r"../../../../Taipei_16.csv")
@@ -38,7 +33,12 @@ dfa8= pd.read_csv(r"../../../../Taipei_18.csv")
 
 
 
-# In[12]:
+# dfa4= pd.read_csv(r"C:\Users\Khalid\Downloads\Taipei_14.csv")
+# dfa5= pd.read_csv(r"C:\Users\Khalid\Downloads\Taipei_15.csv")
+# dfa6= pd.read_csv(r"C:\Users\Khalid\Downloads\Taipei_16.csv")
+# dfa7= pd.read_csv(r"C:\Users\Khalid\Downloads\Taipei_17.csv")
+# dfa8= pd.read_csv(r"C:\Users\Khalid\Downloads\Taipei_18.csv")
+# # In[12]:
 
 
 a4=dfa4[[ 'AMB_TEMP', 'CH4',
@@ -271,7 +271,7 @@ test_dataloader = DataLoader(teset_dataset, batch_size=10, shuffle=False)
 
 
 
-# In[9]:
+# In[14]:
 
 
 import torch
@@ -320,10 +320,24 @@ class TimeSeriesModel(nn.Module):
         # Fully connected layer
         out = self.fc(attended_values).unsqueeze(-1)
         return out
+class Weighted(nn.Module):
+    def __init__(self,n):
+        super().__init__()
+        self.net = nn.Linear(n, 1)
+        
+    def forward(self, x):            
+        return self.net(x)
+def init_weights(m):
+    if type(m) == nn.Linear:
+         #if type(m) == nn.Linear:
+        nn.init.ones_(m.weight)
+       
+    
+    
 class ConcatenatedCNN1DModel(nn.Module):
-    def __init__(self, model1, model2,model3,model4):
+    def __init__(self, model1, model2,model3, model4):
         super(ConcatenatedCNN1DModel, self).__init__()
-        self.models = nn.ModuleList([model1, model2,model3,model4])
+        self.models = nn.ModuleList([model1, model2,model3, model4])
         self.fc = nn.Linear(in_features=len(self.models) * output_size, out_features=1)
 
     def forward(self, x):
@@ -345,7 +359,7 @@ cnn_out_channels =8 # Adjust as needed
 lstm_hidden_size = 10  # Adjust as needed
 lstm_num_layers = 8  # Adjust as needed
 num_heads = 4  # Number of heads in the self-attention layer
-output_size =1 # Adjust based on your task (e.g., binary classification)
+output_size =1# Adjust based on your task (e.g., binary classification)
 
 
 cnn_model1 = TimeSeriesModel(input_size, cnn_out_channels, lstm_hidden_size, lstm_num_layers, num_heads, output_size)
@@ -353,6 +367,7 @@ cnn_model2 = TimeSeriesModel(input_size, cnn_out_channels, lstm_hidden_size, lst
 cnn_model3 = TimeSeriesModel(input_size, cnn_out_channels, lstm_hidden_size, lstm_num_layers, num_heads, output_size)
 cnn_model4 = TimeSeriesModel(input_size, cnn_out_channels, lstm_hidden_size, lstm_num_layers, num_heads, output_size)
 
+###############################
 model=concatenated_model = ConcatenatedCNN1DModel(cnn_model1, cnn_model2,cnn_model3, cnn_model4).to(device)
 
 
@@ -361,7 +376,7 @@ criterion = torch.nn.MSELoss(reduction='mean')
 optimizer = optim.Adam(model.parameters(), lr=0.001)
 
 
-# In[10]:
+# In[15]:
 
 
 print(model)
@@ -375,6 +390,10 @@ optimiser = torch.optim.Adam(model.parameters(), lr=1e-4)
 
 num_epochs = 50
 
+
+wrap = Weighted(1)
+#wrap.sum()
+wrap.apply(init_weights).to(device)
 
 criterion = torch.nn.MSELoss(reduction='mean')
 optimiser = torch.optim.Adam(model.parameters(), lr=1e-4)
@@ -396,13 +415,14 @@ for t in range(num_epochs):
     for idx, data in enumerate(train_dataloader):
         x, y_true = data
         y_pred = model(x).to(device)
-      #  print(y_pred.shape,y_true.shape)
-
+        #print(y_pred.shape,y_true.shape)
         loss = criterion(y_pred, y_true)
         hist[t] += loss.item()
+        wrap_loss = wrap(loss.unsqueeze(dim=0))
+        wrap_loss.sum()
         #wrap_loss = wrap(loss)
         optimiser.zero_grad()
-        loss.backward()
+        wrap_loss.backward()
         optimiser.step()
     hist[t] /= len(train_dataloader)
     model.eval()
@@ -428,13 +448,10 @@ print("Training time: {}".format(training_time))
 
 # In[ ]:
 
-# In[6]:
+
 model.load_state_dict(torch.load('Cailiao1.pt'))
+#####################
 
-
-
-training_time = time.time()-start_time    
-print("Training time: {}".format(training_time))
 
 #####################
 predict_ary = model(x_test)
@@ -467,10 +484,4 @@ with open('Cailiao.csv', 'w', newline='') as file:
         writer.writerows(row_list)
 dfa471= pd.read_csv("Cailiao.csv")
 dfa471
-
-
-# In[ ]:
-
-
-
 

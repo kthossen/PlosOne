@@ -1,44 +1,30 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-# In[ ]:
-
-
-
-
-# In[1]:
-
 
 
 import os
-os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID";
- 
-# The GPU id to use, usually either "0" or "1";
-os.environ["CUDA_VISIBLE_DEVICES"]="2"
+os.environ["CUDA_VISIBLE_DEVICES"] = "3" 
+
+# In[13]:
 
 
-# In[2]:
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torchsummary import summary
-
+#from torchsummary import summary
+from torch.optim import Adam
 from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
-
-
-
+from typing import List
 import pandas as pd
 import numpy as np
 import math ,time
 
+import math, time
+from sklearn.metrics import mean_squared_error
 
-# In[6]:
+# In[13]:
 
 
-
-# In[1]:
-# In[1]:
 dfa4= pd.read_csv(r"../../../../Taipei_14.csv")
 dfa5= pd.read_csv(r"../../../../Taipei_15.csv")
 dfa6= pd.read_csv(r"../../../../Taipei_16.csv")
@@ -47,7 +33,12 @@ dfa8= pd.read_csv(r"../../../../Taipei_18.csv")
 
 
 
-# In[12]:
+# dfa4= pd.read_csv(r"C:\Users\Khalid\Downloads\Taipei_14.csv")
+# dfa5= pd.read_csv(r"C:\Users\Khalid\Downloads\Taipei_15.csv")
+# dfa6= pd.read_csv(r"C:\Users\Khalid\Downloads\Taipei_16.csv")
+# dfa7= pd.read_csv(r"C:\Users\Khalid\Downloads\Taipei_17.csv")
+# dfa8= pd.read_csv(r"C:\Users\Khalid\Downloads\Taipei_18.csv")
+# # In[12]:
 
 
 a4=dfa4[[ 'AMB_TEMP', 'CH4',
@@ -76,11 +67,11 @@ a8=dfa8[['AMB_TEMP', 'CH4',
        'WIND_DIREC', 'WIND_SPEED', 'WIND_cos', 'WIND_sin', 'WS_HR', 'W_HR_cos',
        'W_HR_sin']]
 
-r14=(dfa4[dfa4.SiteEngName =='Zhongshan'])
-r15=(dfa5[dfa5.SiteEngName =='Zhongshan'])
-r16=(dfa6[dfa6.SiteEngName =='Zhongshan'])
-r17=(dfa7[dfa7.SiteEngName =='Zhongshan'])
-r18=(dfa8[dfa8.SiteEngName =='Zhongshan'])
+r14=(dfa4[dfa4.SiteEngName =='Banqiao'])
+r15=(dfa5[dfa5.SiteEngName =='Banqiao'])
+r16=(dfa6[dfa6.SiteEngName =='Banqiao'])
+r17=(dfa7[dfa7.SiteEngName =='Banqiao'])
+r18=(dfa8[dfa8.SiteEngName =='Banqiao'])
 
 ######----------------------------------------------------
 
@@ -280,7 +271,7 @@ test_dataloader = DataLoader(teset_dataset, batch_size=10, shuffle=False)
 
 
 
-# In[9]:
+# In[14]:
 
 
 import torch
@@ -329,10 +320,24 @@ class TimeSeriesModel(nn.Module):
         # Fully connected layer
         out = self.fc(attended_values).unsqueeze(-1)
         return out
+class Weighted(nn.Module):
+    def __init__(self,n):
+        super().__init__()
+        self.net = nn.Linear(n, 1)
+        
+    def forward(self, x):            
+        return self.net(x)
+def init_weights(m):
+    if type(m) == nn.Linear:
+         #if type(m) == nn.Linear:
+        nn.init.ones_(m.weight)
+       
+    
+    
 class ConcatenatedCNN1DModel(nn.Module):
-    def __init__(self, model1, model2,model3,model4):
+    def __init__(self, model1, model2,model3, model4):
         super(ConcatenatedCNN1DModel, self).__init__()
-        self.models = nn.ModuleList([model1, model2,model3,model4])
+        self.models = nn.ModuleList([model1, model2,model3, model4])
         self.fc = nn.Linear(in_features=len(self.models) * output_size, out_features=1)
 
     def forward(self, x):
@@ -354,7 +359,7 @@ cnn_out_channels =8 # Adjust as needed
 lstm_hidden_size = 10  # Adjust as needed
 lstm_num_layers = 8  # Adjust as needed
 num_heads = 4  # Number of heads in the self-attention layer
-output_size =1 # Adjust based on your task (e.g., binary classification)
+output_size =1# Adjust based on your task (e.g., binary classification)
 
 
 cnn_model1 = TimeSeriesModel(input_size, cnn_out_channels, lstm_hidden_size, lstm_num_layers, num_heads, output_size)
@@ -362,6 +367,7 @@ cnn_model2 = TimeSeriesModel(input_size, cnn_out_channels, lstm_hidden_size, lst
 cnn_model3 = TimeSeriesModel(input_size, cnn_out_channels, lstm_hidden_size, lstm_num_layers, num_heads, output_size)
 cnn_model4 = TimeSeriesModel(input_size, cnn_out_channels, lstm_hidden_size, lstm_num_layers, num_heads, output_size)
 
+###############################
 model=concatenated_model = ConcatenatedCNN1DModel(cnn_model1, cnn_model2,cnn_model3, cnn_model4).to(device)
 
 
@@ -370,7 +376,7 @@ criterion = torch.nn.MSELoss(reduction='mean')
 optimizer = optim.Adam(model.parameters(), lr=0.001)
 
 
-# In[10]:
+# In[15]:
 
 
 print(model)
@@ -384,6 +390,10 @@ optimiser = torch.optim.Adam(model.parameters(), lr=1e-4)
 
 num_epochs = 50
 
+
+wrap = Weighted(1)
+#wrap.sum()
+wrap.apply(init_weights).to(device)
 
 criterion = torch.nn.MSELoss(reduction='mean')
 optimiser = torch.optim.Adam(model.parameters(), lr=1e-4)
@@ -405,13 +415,14 @@ for t in range(num_epochs):
     for idx, data in enumerate(train_dataloader):
         x, y_true = data
         y_pred = model(x).to(device)
-      #  print(y_pred.shape,y_true.shape)
-
+        #print(y_pred.shape,y_true.shape)
         loss = criterion(y_pred, y_true)
         hist[t] += loss.item()
+        wrap_loss = wrap(loss.unsqueeze(dim=0))
+        wrap_loss.sum()
         #wrap_loss = wrap(loss)
         optimiser.zero_grad()
-        loss.backward()
+        wrap_loss.backward()
         optimiser.step()
     hist[t] /= len(train_dataloader)
     model.eval()
@@ -426,7 +437,7 @@ for t in range(num_epochs):
     if best_loss > val[t]:
         best_loss = val[t]
         # TODO: Save model 
-        torch.save(model.state_dict(),'Zhongshan1.pt')
+        torch.save(model.state_dict(),'Banqiao1.pt')
 #     scheduler.step(vall_loss)
     #print("Epoch:, loss: %1.5f valid loss:  %1.5f "%(loss.item(),vall_loss.item()))
     print("Epoch ", t, "MSE: ", hist[t].item(),t,"Valid loss",val[t].item())
@@ -437,13 +448,10 @@ print("Training time: {}".format(training_time))
 
 # In[ ]:
 
-# In[6]:
-model.load_state_dict(torch.load('Zhongshan1.pt'))
 
+model.load_state_dict(torch.load('Banqiao1.pt'))
+#####################
 
-
-training_time = time.time()-start_time    
-print("Training time: {}".format(training_time))
 
 #####################
 predict_ary = model(x_test)
@@ -470,16 +478,10 @@ print('this is mae ',mae_score)
 
 import csv
 row_list = [["HR","RMSE","MAE","MAPE","Site"],
-             [1,rmse_score,mae_score,mape_score,"Zhongshan"]]
-with open('Zhongshan.csv', 'w', newline='') as file:
+             [1,rmse_score,mae_score,mape_score,"Banqiao"]]
+with open('Banqiao.csv', 'w', newline='') as file:
         writer = csv.writer(file)
         writer.writerows(row_list)
-dfa471= pd.read_csv("Zhongshan.csv")
+dfa471= pd.read_csv("Banqiao.csv")
 dfa471
-
-
-# In[ ]:
-
-
-
 

@@ -8,7 +8,7 @@ import os
 os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID";
  
 # The GPU id to use, usually either "0" or "1";
-os.environ["CUDA_VISIBLE_DEVICES"]="2"
+os.environ["CUDA_VISIBLE_DEVICES"]="3"
 
 
 # In[2]:
@@ -25,6 +25,7 @@ from torch.utils.data import DataLoader
 import pandas as pd
 import numpy as np
 import math ,time
+
 
 
 dfa4= pd.read_csv(r"../../../../Taipei_14.csv")
@@ -123,7 +124,7 @@ print(c4i.shape)
 
 # Put timesteps together
 x=c4i
-timestep =64
+timestep =56
 x_build = []
 
 for i in range(x.shape[0] - timestep * 2 ):
@@ -320,7 +321,7 @@ class ConcatenatedCNN1DModel(nn.Module):
     def __init__(self, model1, model2,model3,model4):
         super(ConcatenatedCNN1DModel, self).__init__()
         self.models = nn.ModuleList([model1, model2,model3,model4])
-        self.fc = nn.Linear(in_features=len(self.models) * output_size, out_features=64)
+        self.fc = nn.Linear(in_features=len(self.models) * output_size, out_features=56)
 
     def forward(self, x):
         outputs = [model(x) for model in self.models]
@@ -341,7 +342,7 @@ cnn_out_channels =8 # Adjust as needed
 lstm_hidden_size = 10  # Adjust as needed
 lstm_num_layers = 8  # Adjust as needed
 num_heads = 4  # Number of heads in the self-attention layer
-output_size =64 # Adjust based on your task (e.g., binary classification)
+output_size =56 # Adjust based on your task (e.g., binary classification)
 
 
 cnn_model1 = TimeSeriesModel(input_size, cnn_out_channels, lstm_hidden_size, lstm_num_layers, num_heads, output_size)
@@ -455,7 +456,7 @@ print('this is mae ',mae_score)
 #####################################
 
 import csv
-data =[[64,rmse_score,mae_score,mape_score,"Cailiao"]]
+data =[[56,rmse_score,mae_score,mape_score,"Cailiao"]]
 file = open('Cailiao.csv', 'a+', newline ='')
 
 # writing the data into the file
