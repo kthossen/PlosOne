@@ -1,7 +1,12 @@
+#!/usr/bin/env python
+# coding: utf-8
+
+# In[3]:
+
 
 
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "0" 
+os.environ["CUDA_VISIBLE_DEVICES"] = "2" 
 
 # In[13]:
 
@@ -22,8 +27,8 @@ import math ,time
 import math, time
 from sklearn.metrics import mean_squared_error
 
-
 # In[13]:
+
 
 dfa4= pd.read_csv(r"../../../../Taipei_14.csv")
 dfa5= pd.read_csv(r"../../../../Taipei_15.csv")
@@ -32,6 +37,17 @@ dfa7= pd.read_csv(r"../../../../Taipei_17.csv")
 dfa8= pd.read_csv(r"../../../../Taipei_18.csv")
 
 
+# In[4]:
+
+
+# dfa4= pd.read_csv(r"C:\Users\Khalid\Downloads\Taipei_14.csv")
+# dfa5= pd.read_csv(r"C:\Users\Khalid\Downloads\Taipei_15.csv")
+# dfa6= pd.read_csv(r"C:\Users\Khalid\Downloads\Taipei_16.csv")
+# dfa7= pd.read_csv(r"C:\Users\Khalid\Downloads\Taipei_17.csv")
+# dfa8= pd.read_csv(r"C:\Users\Khalid\Downloads\Taipei_18.csv")
+
+
+# In[12]:
 
 
 a4=dfa4[[ 'AMB_TEMP', 'CH4',
@@ -251,7 +267,7 @@ class MyDataset(Dataset):
     def __getitem__(self, idx):
         return self.x[idx], self.y[idx]
 
-trainM_dataset = MyDataset(x_train, y_train)
+train_dataset = MyDataset(x_train, y_train)
 teset_dataset = MyDataset(x_test, y_test)
 
 train_dataloader = DataLoader(train_dataset, batch_size=10, shuffle=True)
@@ -264,7 +280,7 @@ test_dataloader = DataLoader(teset_dataset, batch_size=10, shuffle=False)
 
 
 
-# In[14]:
+# In[ ]:
 
 
 import torch
@@ -280,8 +296,7 @@ class TimeSeriesModel(nn.Module):
         # 1D CNN layer
         self.cnn = nn.Sequential(
             nn.Conv1d(input_size, cnn_out_channels, kernel_size=8)
-#             nn.ReLU(),
-#             nn.MaxPool1d(kernel_size=8)
+
         )
 
         # Bidirectional LSTM layer
@@ -313,21 +328,7 @@ class TimeSeriesModel(nn.Module):
         # Fully connected layer
         out = self.fc(attended_values).unsqueeze(-1)
         return out
-class Weighted(nn.Module):
-    def __init__(self,n):
-        super().__init__()
-        self.net = nn.Linear(n, 1)
-        
-    def forward(self, x):            
-        return self.net(x)
-def init_weights(m):
-    if type(m) == nn.Linear:
-         #if type(m) == nn.Linear:
-        nn.init.ones_(m.weight)
-       
-    
-      
-   
+
     
 input_size=10
 
@@ -342,26 +343,29 @@ cnn_out_channels =8 # Adjust as needed
 lstm_hidden_size = 10  # Adjust as needed
 lstm_num_layers = 8  # Adjust as needed
 num_heads = 4  # Number of heads in the self-attention layer
-output_size =48# Adjust based on your task (e.g., binary classification)
+output_size =48 # Adjust based on your task (e.g., binary classification)
+
 
 
 model = TimeSeriesModel(input_size, cnn_out_channels, lstm_hidden_size, lstm_num_layers, num_heads, output_size).to(device)
 criterion = torch.nn.MSELoss(reduction='mean')
 optimizer = optim.Adam(model.parameters(), lr=0.001)
 
-#################################
+
+# In[ ]:
+
 
 print(model)
+
+
+# In[ ]:
+
 
 
 optimiser = torch.optim.Adam(model.parameters(), lr=1e-4)
 
 num_epochs = 50
-##########################
-##############################
-wrap = Weighted(1)
-#wrap.sum()
-wrap.apply(init_weights).to(device)
+
 
 criterion = torch.nn.MSELoss(reduction='mean')
 optimiser = torch.optim.Adam(model.parameters(), lr=1e-4)
@@ -383,14 +387,13 @@ for t in range(num_epochs):
     for idx, data in enumerate(train_dataloader):
         x, y_true = data
         y_pred = model(x).to(device)
-        #print(y_pred.shape,y_true.shape)
+      #  print(y_pred.shape,y_true.shape)
+
         loss = criterion(y_pred, y_true)
         hist[t] += loss.item()
-        wrap_loss = wrap(loss.unsqueeze(dim=0))
-        wrap_loss.sum()
         #wrap_loss = wrap(loss)
         optimiser.zero_grad()
-        wrap_loss.backward()
+        loss.backward()
         optimiser.step()
     hist[t] /= len(train_dataloader)
     model.eval()
@@ -405,7 +408,7 @@ for t in range(num_epochs):
     if best_loss > val[t]:
         best_loss = val[t]
         # TODO: Save model 
-        torch.save(model.state_dict(),'Cailiao48.pt')
+        torch.save(model.state_dict(),'Cailiao8.pt')
 #     scheduler.step(vall_loss)
     #print("Epoch:, loss: %1.5f valid loss:  %1.5f "%(loss.item(),vall_loss.item()))
     print("Epoch ", t, "MSE: ", hist[t].item(),t,"Valid loss",val[t].item())
@@ -417,12 +420,10 @@ print("Training time: {}".format(training_time))
 # In[ ]:
 
 
-model.load_state_dict(torch.load('Cailiao48.pt'))
+
+
+model.load_state_dict(torch.load('Cailiao8.pt'))
 #####################
-
-
-# In[ ]:
-
 
 
 sum([param.nelement() for param in model.parameters()])
@@ -461,4 +462,10 @@ with file:
     write.writerows(data)
 dfa47= pd.read_csv("Cailiao.csv")
 dfa47
+
+
+# In[ ]:
+
+
+
 
